@@ -1,9 +1,15 @@
 import sqlite3
+
+
 DATABASE_NAME = "library.db"
+
+
 def get_connection():
     connection = sqlite3.connect(DATABASE_NAME)
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
+
+
 def initialize_database():
     connection = get_connection()
     cursor = connection.cursor()
@@ -24,6 +30,7 @@ def initialize_database():
             )
         )
     """)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS readers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,6 +39,7 @@ def initialize_database():
             email TEXT
         )
     """)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS loans (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +52,143 @@ def initialize_database():
             FOREIGN KEY (reader_id) REFERENCES readers (id)
         )
     """)
+
     connection.commit()
     connection.close()
+
+
+def get_books():
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            id,
+            title,
+            author,
+            publication_year,
+            genre,
+            total_copies,
+            available_copies
+        FROM books
+        ORDER BY title
+    """)
+
+    books = cursor.fetchall()
+    connection.close()
+
+    return books
+
+
+def add_book(title, author, publication_year, genre, total_copies):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        INSERT INTO books (
+            title,
+            author,
+            publication_year,
+            genre,
+            total_copies,
+            available_copies
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        title,
+        author,
+        publication_year,
+        genre,
+        total_copies,
+        total_copies
+    ))
+
+    connection.commit()
+    connection.close()
+
+
+def update_book(
+        book_id,
+        title,
+        author,
+        publication_year,
+        genre,
+        total_copies
+):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT total_copies, available_copies
+        FROM books
+        WHERE id = ?
+    """, (book_id,))
+
+    book = cursor.fetchone()
+
+    if book is None:
+        connection.close()
+        raise ValueError("Книга не найдена.")
+
+    old_total_copies = book[0]
+    old_available_copies = book[1]
+
+    issued_copies = old_total_copies - old_available_copies
+
+    if total_copies < issued_copies:
+        connection.close()
+        raise ValueError(
+            "Количество экземпляров нельзя сделать меньше "
+            "количества уже выданных книг."
+        )
+
+    new_available_copies = total_copies - issued_copies
+
+    cursor.execute("""
+        UPDATE books
+        SET
+            title = ?,
+            author = ?,
+            publication_year = ?,
+            genre = ?,
+            total_copies = ?,
+            available_copies = ?
+        WHERE id = ?
+    """, (
+        title,
+        author,
+        publication_year,
+        genre,
+        total_copies,
+        new_available_copies,
+        book_id
+    ))
+
+    connection.commit()
+    connection.close()
+
+
+def delete_book(book_id):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("""
+            DELETE FROM books
+            WHERE id = ?
+        """, (book_id,))
+
+        connection.commit()
+
+    except sqlite3.IntegrityError as error:
+        raise ValueError(
+            "Книгу нельзя удалить, потому что она используется "
+            "в истории выдач."
+        ) from error
+
+    finally:
+        connection.close()
+
+
 if __name__ == "__main__":
     initialize_database()

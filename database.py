@@ -190,5 +190,91 @@ def delete_book(book_id):
         connection.close()
 
 
+def get_readers():
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            id,
+            full_name,
+            phone,
+            email
+        FROM readers
+        ORDER BY full_name
+    """)
+
+    readers = cursor.fetchall()
+    connection.close()
+
+    return readers
+
+
+def add_reader(full_name, phone, email):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        INSERT INTO readers (
+            full_name,
+            phone,
+            email
+        )
+        VALUES (?, ?, ?)
+    """, (
+        full_name,
+        phone,
+        email
+    ))
+
+    connection.commit()
+    connection.close()
+
+
+def update_reader(reader_id, full_name, phone, email):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        UPDATE readers
+        SET
+            full_name = ?,
+            phone = ?,
+            email = ?
+        WHERE id = ?
+    """, (
+        full_name,
+        phone,
+        email,
+        reader_id
+    ))
+
+    connection.commit()
+    connection.close()
+
+
+def delete_reader(reader_id):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("""
+            DELETE FROM readers
+            WHERE id = ?
+        """, (reader_id,))
+
+        connection.commit()
+
+    except sqlite3.IntegrityError as error:
+        raise ValueError(
+            "Читателя нельзя удалить, потому что он используется "
+            "в истории выдач."
+        ) from error
+
+    finally:
+        connection.close()
+
+
 if __name__ == "__main__":
     initialize_database()
+    print("База данных успешно создана.")

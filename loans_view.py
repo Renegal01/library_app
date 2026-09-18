@@ -6,7 +6,8 @@ from database import (
     get_available_books,
     get_readers,
     add_loan,
-    get_active_loans
+    get_active_loans,
+    return_loan
 )
 
 
@@ -123,7 +124,8 @@ class LoansView(ttk.Frame):
         self.tree = ttk.Treeview(
             table_frame,
             columns=columns,
-            show="headings"
+            show="headings",
+            selectmode="browse"
         )
 
         self.tree.heading(
@@ -187,6 +189,23 @@ class LoansView(ttk.Frame):
             row=0,
             column=1,
             sticky="ns"
+        )
+
+        buttons_frame = ttk.Frame(self)
+
+        buttons_frame.grid(
+            row=2,
+            column=0,
+            sticky="w",
+            pady=(15, 0)
+        )
+
+        ttk.Button(
+            buttons_frame,
+            text="Вернуть книгу",
+            command=self.return_book
+        ).pack(
+            side="left"
         )
 
     def refresh_data(self):
@@ -320,6 +339,58 @@ class LoansView(ttk.Frame):
         messagebox.showinfo(
             "Выдача книги",
             "Книга успешно выдана."
+        )
+
+        self.refresh_data()
+
+    def return_book(self):
+        selected = self.tree.selection()
+
+        if not selected:
+            messagebox.showwarning(
+                "Возврат книги",
+                "Сначала выберите выдачу в таблице."
+            )
+            return
+
+        loan_id = int(selected[0])
+
+        item = self.tree.item(selected[0])
+        values = item["values"]
+
+        book_title = values[0]
+        reader_name = values[2]
+
+        confirmed = messagebox.askyesno(
+            "Возврат книги",
+            (
+                f"Вернуть книгу «{book_title}» "
+                f"от читателя «{reader_name}»?"
+            )
+        )
+
+        if not confirmed:
+            return
+
+        today = date.today().isoformat()
+
+        try:
+            return_loan(
+                loan_id=loan_id,
+                return_date=today
+            )
+
+        except ValueError as error:
+            messagebox.showerror(
+                "Ошибка",
+                str(error)
+            )
+            self.refresh_data()
+            return
+
+        messagebox.showinfo(
+            "Возврат книги",
+            "Книга успешно возвращена."
         )
 
         self.refresh_data()

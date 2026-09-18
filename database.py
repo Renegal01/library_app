@@ -367,6 +367,52 @@ def get_active_loans():
 
     return loans
 
+
+def return_loan(loan_id, return_date):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                book_id,
+                status
+            FROM loans
+            WHERE id = ?
+        """, (loan_id,))
+
+        loan = cursor.fetchone()
+
+        if loan is None:
+            raise ValueError("Выдача не найдена.")
+        book_id = loan[0]
+        status = loan[1]
+        if status != "Выдана":
+            raise ValueError(
+                "Эта книга уже была возвращена."
+            )
+        cursor.execute("""
+            UPDATE loans
+            SET
+                return_date = ?,
+                status = 'Возвращена'
+            WHERE id = ?
+        """, (
+            return_date,
+            loan_id
+        ))
+        cursor.execute("""
+            UPDATE books
+            SET available_copies = available_copies + 1
+            WHERE id = ?
+        """, (book_id,))
+
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
 if __name__ == "__main__":
     initialize_database()
-    print("База данных успешно создана.")

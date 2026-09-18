@@ -274,6 +274,98 @@ def delete_reader(reader_id):
     finally:
         connection.close()
 
+def get_available_books():
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+        SELECT
+            id,
+            title,
+            author,
+            available_copies
+        FROM books
+        WHERE available_copies > 0
+        ORDER BY title
+    """)
+    books = cursor.fetchall()
+    connection.close()
+    return books
+def add_loan(book_id, reader_id, issue_date):
+    connection = get_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("""
+            SELECT available_copies
+            FROM books
+            WHERE id = ?
+        """, (book_id,))
+        book = cursor.fetchone()
+        if book is None:
+            raise ValueError("Книга не найдена.")
+        available_copies = book[0]
+        if available_copies <= 0:
+            raise ValueError(
+                "Нет доступных экземпляров этой книги."
+            )
+        cursor.execute("""
+            SELECT id
+            FROM readers
+            WHERE id = ?
+        """, (reader_id,))
+        reader = cursor.fetchone()
+        if reader is None:
+            raise ValueError("Читатель не найден.")
+        cursor.execute("""
+            INSERT INTO loans (
+                book_id,
+                reader_id,
+                issue_date,
+                status
+            )
+            VALUES (?, ?, ?, 'Выдана')
+        """, (
+            book_id,
+            reader_id,
+            issue_date
+        ))
+        cursor.execute("""
+            UPDATE books
+            SET available_copies = available_copies - 1
+            WHERE id = ?
+        """, (book_id,))
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        connection.close()
+
+
+def get_active_loans():
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            loans.id,
+            books.title,
+            books.author,
+            readers.full_name,
+            loans.issue_date
+        FROM loans
+        JOIN books
+            ON loans.book_id = books.id
+        JOIN readers
+            ON loans.reader_id = readers.id
+        WHERE loans.status = 'Выдана'
+        ORDER BY loans.issue_date DESC, loans.id DESC
+    """)
+
+    loans = cursor.fetchall()
+    connection.close()
+
+    return loans
 
 if __name__ == "__main__":
     initialize_database()

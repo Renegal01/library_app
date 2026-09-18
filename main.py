@@ -3,6 +3,7 @@ from tkinter import ttk
 from database import initialize_database
 from books_view import BooksView
 from readers_view import ReadersView
+from loans_view import LoansView
 def main():
     initialize_database()
     root = tk.Tk()
@@ -31,6 +32,7 @@ def main():
     )
     books_tab = BooksView(notebook)
     readers_tab = ReadersView(notebook)
+    loans_tab = LoansView(notebook)
     notebook.add(
         books_tab,
         text="Книги"
@@ -38,6 +40,26 @@ def main():
     notebook.add(
         readers_tab,
         text="Читатели"
+    )
+    notebook.add(
+        loans_tab,
+        text="Выдача книг"
+    )
+    def on_tab_changed(event):
+        selected_tab = event.widget.select()
+        tab_text = event.widget.tab(
+            selected_tab,
+            "text"
+        )
+        if tab_text == "Книги":
+            books_tab.refresh_books()
+        elif tab_text == "Читатели":
+            readers_tab.refresh_readers()
+        elif tab_text == "Выдача книг":
+            loans_tab.refresh_data()
+    notebook.bind(
+        "<<NotebookTabChanged>>",
+        on_tab_changed
     )
     root.mainloop()
 if __name__ == "__main__":
